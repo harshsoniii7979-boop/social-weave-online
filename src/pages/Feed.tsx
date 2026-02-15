@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Post from "@/components/Post";
@@ -10,94 +10,92 @@ import { Image, Send, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+
+interface PostRow {
+  id: string;
+  username: string;
+  user_initials: string;
+  content: string;
+  image_url: string | null;
+  likes_count: number;
+  comments_count: number;
+  shares_count: number;
+  created_at: string;
+}
 
 const Feed = () => {
   const [postContent, setPostContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [posts, setPosts] = useState<PostRow[]>([]);
   const { toast } = useToast();
-  
-  const [posts, setPosts] = useState([
-    {
-      id: "1",
-      username: "alice_network",
-      userInitials: "AN",
-      timeAgo: "2h ago",
-      content: "Just set up my node on SocialWeave! Excited to be part of this decentralized network where I own my data and connections.",
-      likesCount: 24,
-      commentsCount: 5,
-      sharesCount: 2,
-    },
-    {
-      id: "2",
-      username: "crypto_bob",
-      userInitials: "CB",
-      timeAgo: "5h ago",
-      content: "Decentralization is the future of social media. No more arbitrary censorship or data mining!",
-      imageUrl: "https://images.unsplash.com/photo-1639322537231-2f206e06af84?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-      likesCount: 42,
-      commentsCount: 8,
-      sharesCount: 7,
-    },
-    {
-      id: "3",
-      username: "defi_enthusiast",
-      userInitials: "DE",
-      timeAgo: "1d ago",
-      content: "Web3 social networks are evolving fast! SocialWeave is becoming my favorite way to connect with the community while maintaining privacy.\n\nWho else is building on this platform?",
-      likesCount: 18,
-      commentsCount: 12,
-      sharesCount: 3,
-    },
-    {
-      id: "4",
-      username: "node_runner",
-      userInitials: "NR",
-      timeAgo: "2d ago",
-      content: "Tutorial: How to set up your own SocialWeave node in 5 minutes. Check out this guide I made!",
-      imageUrl: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80",
-      likesCount: 56,
-      commentsCount: 14,
-      sharesCount: 23,
-    },
-  ]);
 
-  const handlePostSubmit = () => {
-    if (!postContent.trim()) return;
-    
-    setIsLoading(true);
-    
-    setTimeout(() => {
-      const newPost = {
-        id: Date.now().toString(),
-        username: "you",
-        userInitials: "YO",
-        timeAgo: "Just now",
-        content: postContent,
-        likesCount: 0,
-        commentsCount: 0,
-        sharesCount: 0,
-      };
-      setPosts((prev) => [newPost, ...prev]);
-      setPostContent("");
-      setIsLoading(false);
-      toast({
-        title: "Post shared",
-        description: "Your post has been shared to the network",
-      });
-    }, 1500);
+  const fetchPosts = async () => {
+    const { data, error } = await supabase
+      .from('posts' as any)
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching posts:', error);
+      return;
+    }
+    setPosts((data as unknown as PostRow[]) || []);
   };
 
-  const handleRefresh = () => {
+  useEffect(() => {
+    fetchPosts();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('posts-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        fetchPosts();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const timeAgo = (dateStr: string) => {
+    const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const handlePostSubmit = async () => {
+    if (!postContent.trim()) return;
     setIsLoading(true);
-    
-    // Simulate refresh
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Feed refreshed",
-        description: "Your feed has been updated with the latest posts",
-      });
-    }, 1500);
+
+    const { error } = await supabase
+      .from('posts' as any)
+      .insert({
+        username: 'you',
+        user_initials: 'YO',
+        content: postContent,
+      } as any);
+
+    if (error) {
+      console.error('Error creating post:', error);
+      toast({ title: "Error", description: "Failed to share your post", variant: "destructive" });
+    } else {
+      toast({ title: "Post shared", description: "Your post has been shared to the network" });
+    }
+
+    setPostContent("");
+    setIsLoading(false);
+  };
+
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    await fetchPosts();
+    setIsLoading(false);
+    toast({ title: "Feed refreshed", description: "Your feed has been updated with the latest posts" });
   };
 
   return (
@@ -169,8 +167,22 @@ const Feed = () => {
             
             <div className="space-y-4">
               {posts.map((post) => (
-                <Post key={post.id} {...post} />
+                <Post
+                  key={post.id}
+                  id={post.id}
+                  username={post.username}
+                  userInitials={post.user_initials}
+                  timeAgo={timeAgo(post.created_at)}
+                  content={post.content}
+                  imageUrl={post.image_url ?? undefined}
+                  likesCount={post.likes_count}
+                  commentsCount={post.comments_count}
+                  sharesCount={post.shares_count}
+                />
               ))}
+              {posts.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No posts yet. Be the first to share!</p>
+              )}
             </div>
           </div>
           
@@ -191,7 +203,7 @@ const Feed = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Posts Today</span>
-                    <span className="font-medium">843</span>
+                    <span className="font-medium">{posts.length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network Health</span>
