@@ -1,12 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Post from "@/components/Post";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Image, Send, RefreshCw } from "lucide-react";
+import { Image, Send, RefreshCw, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
@@ -28,6 +28,9 @@ const Feed = () => {
   const [postContent, setPostContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [posts, setPosts] = useState<PostRow[]>([]);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const fetchPosts = async () => {
@@ -68,17 +71,58 @@ const Feed = () => {
     return `${days}d ago`;
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Invalid file", description: "Please select an image file", variant: "destructive" });
+      return;
+    }
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handlePostSubmit = async () => {
     if (!postContent.trim()) return;
     setIsLoading(true);
 
+    let imageUrl: string | undefined;
+
+    if (selectedImage) {
+      const fileName = `${Date.now()}-${selectedImage.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(fileName, selectedImage);
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast({ title: "Upload failed", description: "Could not upload image", variant: "destructive" });
+        setIsLoading(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('post-images')
+        .getPublicUrl(fileName);
+      imageUrl = urlData.publicUrl;
+    }
+
+    const insertData: any = {
+      username: 'you',
+      user_initials: 'YO',
+      content: postContent,
+    };
+    if (imageUrl) insertData.image_url = imageUrl;
+
     const { error } = await supabase
       .from('posts' as any)
-      .insert({
-        username: 'you',
-        user_initials: 'YO',
-        content: postContent,
-      } as any);
+      .insert(insertData as any);
 
     if (error) {
       console.error('Error creating post:', error);
@@ -88,6 +132,7 @@ const Feed = () => {
     }
 
     setPostContent("");
+    clearImage();
     setIsLoading(false);
   };
 
@@ -120,11 +165,31 @@ const Feed = () => {
                   value={postContent}
                   onChange={(e) => setPostContent(e.target.value)}
                 />
+                {imagePreview && (
+                  <div className="relative mt-3 rounded-md overflow-hidden border border-border">
+                    <img src={imagePreview} alt="Preview" className="w-full max-h-64 object-cover" />
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      className="absolute top-2 right-2 h-7 w-7 rounded-full"
+                      onClick={clearImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="border-t pt-3 flex justify-between">
-                <Button variant="ghost" size="sm">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                />
+                <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
                   <Image className="h-4 w-4 mr-2" />
-                  <span>Add Image</span>
+                  <span>{selectedImage ? 'Change Image' : 'Add Image'}</span>
                 </Button>
                 <Button 
                   onClick={handlePostSubmit} 
