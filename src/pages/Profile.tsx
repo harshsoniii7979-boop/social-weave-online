@@ -168,9 +168,9 @@ const Profile = () => {
                             Cancel
                           </Button>
                           <Button onClick={() => handleProfileUpdate({
-                            name: document.getElementById('name').value,
-                            username: document.getElementById('username').value,
-                            bio: document.getElementById('bio').value,
+                            name: (document.getElementById('name') as HTMLInputElement)?.value,
+                            username: (document.getElementById('username') as HTMLInputElement)?.value,
+                            bio: (document.getElementById('bio') as HTMLTextAreaElement)?.value,
                           })}>
                             Save Changes
                           </Button>
