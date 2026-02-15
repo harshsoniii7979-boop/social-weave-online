@@ -16,7 +16,7 @@ const Feed = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
-  const mockPosts = [
+  const [posts, setPosts] = useState([
     {
       id: "1",
       username: "alice_network",
@@ -59,15 +59,25 @@ const Feed = () => {
       commentsCount: 14,
       sharesCount: 23,
     },
-  ];
+  ]);
 
   const handlePostSubmit = () => {
     if (!postContent.trim()) return;
     
     setIsLoading(true);
     
-    // Simulate posting delay
     setTimeout(() => {
+      const newPost = {
+        id: Date.now().toString(),
+        username: "you",
+        userInitials: "YO",
+        timeAgo: "Just now",
+        content: postContent,
+        likesCount: 0,
+        commentsCount: 0,
+        sharesCount: 0,
+      };
+      setPosts((prev) => [newPost, ...prev]);
       setPostContent("");
       setIsLoading(false);
       toast({
@@ -158,7 +168,7 @@ const Feed = () => {
             </div>
             
             <div className="space-y-4">
-              {mockPosts.map((post) => (
+              {posts.map((post) => (
                 <Post key={post.id} {...post} />
               ))}
             </div>
