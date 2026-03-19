@@ -95,22 +95,21 @@ const Feed = () => {
     let imageUrl: string | undefined;
 
     if (selectedImage) {
-      const fileName = `${Date.now()}-${selectedImage.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('post-images')
-        .upload(fileName, selectedImage);
+      const formData = new FormData();
+      formData.append('file', selectedImage);
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
+      const { data, error: uploadError } = await supabase.functions.invoke('upload-image', {
+        body: formData,
+      });
+
+      if (uploadError || !data?.url) {
+        console.error('Upload error:', uploadError || data?.error);
         toast({ title: "Upload failed", description: "Could not upload image", variant: "destructive" });
         setIsLoading(false);
         return;
       }
 
-      const { data: urlData } = supabase.storage
-        .from('post-images')
-        .getPublicUrl(fileName);
-      imageUrl = urlData.publicUrl;
+      imageUrl = data.url;
     }
 
     const insertData: any = {
