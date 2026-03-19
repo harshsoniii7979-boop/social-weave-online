@@ -105,7 +105,7 @@ const Post = ({
         <Button 
           variant="ghost" 
           size="sm" 
-          className={`flex items-center gap-1 ${isLiked ? 'text-red-500' : ''}`}
+          className={`flex items-center gap-1 ${isLiked ? 'text-destructive' : ''}`}
           onClick={handleLike}
         >
           <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />

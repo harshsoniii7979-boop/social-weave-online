@@ -52,7 +52,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t animate-fade-in">
+        <div className="md:hidden bg-background border-t border-border animate-fade-in">
           <div className="container py-4 flex flex-col space-y-4">
             <Link 
               to="/" 
