@@ -13,7 +13,7 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
       <div className="container flex items-center justify-between py-4">
         <Link to="/" className="flex items-center space-x-2">
           <Activity className="h-6 w-6 text-accent" />
@@ -52,7 +52,7 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t animate-fade-in">
+        <div className="md:hidden bg-background border-t border-border animate-fade-in">
           <div className="container py-4 flex flex-col space-y-4">
             <Link 
               to="/" 

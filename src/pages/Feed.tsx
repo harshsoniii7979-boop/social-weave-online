@@ -282,7 +282,7 @@ const Feed = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Network Health</span>
-                    <span className="text-green-500 font-medium">Good</span>
+                    <span className="text-primary font-medium">Good</span>
                   </div>
                 </CardContent>
               </Card>
