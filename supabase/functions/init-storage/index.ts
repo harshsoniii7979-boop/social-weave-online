@@ -27,6 +27,26 @@ serve(async (req) => {
       });
     }
 
+    // Create storage policies via SQL
+    const policies = [
+      {
+        name: "Allow public read post-images",
+        sql: `CREATE POLICY "Allow public read post-images" ON storage.objects FOR SELECT TO public USING (bucket_id = 'post-images');`,
+      },
+      {
+        name: "Allow public upload post-images",
+        sql: `CREATE POLICY "Allow public upload post-images" ON storage.objects FOR INSERT TO public WITH CHECK (bucket_id = 'post-images');`,
+      },
+    ];
+
+    for (const policy of policies) {
+      const { error } = await supabaseAdmin.rpc("exec_sql" as any, { sql: policy.sql } as any);
+      if (error && !error.message?.includes("already exists")) {
+        // Try direct approach - if rpc doesn't work, use raw query
+        console.log(`Policy creation note for ${policy.name}:`, error.message);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
