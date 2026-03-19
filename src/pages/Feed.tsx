@@ -98,18 +98,29 @@ const Feed = () => {
       const formData = new FormData();
       formData.append('file', selectedImage);
 
-      const { data, error: uploadError } = await supabase.functions.invoke('upload-image', {
-        body: formData,
-      });
-
-      if (uploadError || !data?.url) {
-        console.error('Upload error:', uploadError || data?.error);
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'uimjbxzrzllbkthmdezt';
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/upload-image`,
+          {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          }
+        );
+        const data = await response.json();
+        if (!response.ok || !data?.url) {
+          throw new Error(data?.error || 'Upload failed');
+        }
+        imageUrl = data.url;
+      } catch (err: any) {
+        console.error('Upload error:', err);
         toast({ title: "Upload failed", description: "Could not upload image", variant: "destructive" });
         setIsLoading(false);
         return;
       }
-
-      imageUrl = data.url;
     }
 
     const insertData: any = {
